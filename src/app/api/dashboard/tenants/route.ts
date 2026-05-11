@@ -56,6 +56,10 @@ export async function PATCH(req: Request) {
     await connectDB();
     const { id, ...updates } = await req.json();
 
+    if (updates.password) {
+      updates.password = await bcrypt.hash(updates.password, 10);
+    }
+
     const tenant = await (Tenant as any).findByIdAndUpdate(id, updates, { new: true });
     
     if (!tenant) return NextResponse.json({ error: 'Tenant not found' }, { status: 404 });

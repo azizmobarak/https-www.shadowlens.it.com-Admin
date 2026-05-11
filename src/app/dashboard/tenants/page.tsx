@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { 
-  Layers, Users, Shield, Edit3, Check, X, Search, Plus, Trash2, Mail, Lock, Building
+  Layers, Users, Shield, Edit3, Check, X, Search, Plus, Trash2, Mail, Lock, Building, Key
 } from 'lucide-react';
 import SuperSidebar from '@/components/layout/SuperSidebar';
 import clsx from 'clsx';
@@ -10,9 +10,8 @@ import clsx from 'clsx';
 export default function TenantManagement() {
   const [tenants, setTenants] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [newSeats, setNewSeats] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   
   // New Tenant Form
   const [formData, setFormData] = useState({
@@ -22,6 +21,9 @@ export default function TenantManagement() {
     plan: 'starter',
     allowedSeats: 5
   });
+
+  // Edit Tenant Form
+  const [editData, setEditData] = useState<any>(null);
 
   const fetchTenants = async () => {
     try {
@@ -49,15 +51,24 @@ export default function TenantManagement() {
     }
   };
 
-  const updateSeats = async (id: string) => {
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const { _id, companyName, adminEmail, password, allowedSeats, plan, status } = editData;
+    
+    const body: any = { id: _id, companyName, adminEmail, allowedSeats, plan, status };
+    if (password) body.password = password; // Only send password if changed
+
     const res = await fetch('/api/dashboard/tenants', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, allowedSeats: newSeats })
+      body: JSON.stringify(body)
     });
+
     if (res.ok) {
-      setEditingId(null);
+      setIsEditModalOpen(false);
       fetchTenants();
+    } else {
+      alert('Update failed');
     }
   };
 
@@ -84,8 +95,8 @@ export default function TenantManagement() {
       <div className="flex-1 p-12 overflow-y-auto">
          <header className="mb-12 flex justify-between items-end">
             <div>
-               <h1 className="text-4xl font-black mb-2 tracking-tight uppercase italic">Client Registry</h1>
-               <p className="text-gray-500 font-medium uppercase text-[10px] tracking-widest">Global License & Governance Management</p>
+               <h1 className="text-4xl font-black mb-2 tracking-tight uppercase italic text-white">Client Registry</h1>
+               <p className="text-gray-500 font-medium uppercase text-[10px] tracking-widest text-white">Global License & Governance Management</p>
             </div>
             <div className="flex gap-4">
                <button 
@@ -124,33 +135,14 @@ export default function TenantManagement() {
                           </div>
                        </td>
                        <td className="p-6">
-                          {editingId === t._id ? (
-                            <div className="flex items-center gap-2">
-                               <input 
-                                 type="number" 
-                                 defaultValue={t.allowedSeats}
-                                 className="w-16 bg-black border border-blue-500/50 rounded-lg p-1 text-center text-xs text-white"
-                                 onChange={(e) => setNewSeats(parseInt(e.target.value))}
-                               />
-                               <button onClick={() => updateSeats(t._id)} className="p-1 hover:text-green-500"><Check className="w-4 h-4" /></button>
-                               <button onClick={() => setEditingId(null)} className="p-1 hover:text-red-500"><X className="w-4 h-4" /></button>
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-3">
-                               <span className={clsx(
-                                 "text-xs font-mono font-black px-2 py-1 rounded-md bg-white/5 border border-white/5",
-                                 t.usedSeats >= t.allowedSeats ? "text-red-500" : "text-green-400"
-                               )}>
-                                 {t.usedSeats || 0} / {t.allowedSeats}
-                               </span>
-                               <button 
-                                 onClick={() => { setEditingId(t._id); setNewSeats(t.allowedSeats); }}
-                                 className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-600 hover:text-white"
-                               >
-                                 <Edit3 className="w-3.5 h-3.5" />
-                               </button>
-                            </div>
-                          )}
+                          <div className="flex items-center gap-3">
+                             <span className={clsx(
+                               "text-xs font-mono font-black px-2 py-1 rounded-md bg-white/5 border border-white/5",
+                               t.usedSeats >= t.allowedSeats ? "text-red-500" : "text-green-400"
+                             )}>
+                               {t.usedSeats || 0} / {t.allowedSeats}
+                             </span>
+                          </div>
                        </td>
                        <td className="p-6">
                           <div className={clsx(
@@ -161,7 +153,13 @@ export default function TenantManagement() {
                              {t.status}
                           </div>
                        </td>
-                       <td className="p-6 text-right">
+                       <td className="p-6 text-right flex justify-end gap-2">
+                          <button 
+                            onClick={() => { setEditData({...t, password: ''}); setIsEditModalOpen(true); }}
+                            className="p-3 hover:bg-blue-600/10 rounded-xl transition-all text-gray-700 hover:text-blue-500"
+                          >
+                             <Edit3 className="w-4 h-4" />
+                          </button>
                           <button 
                            onClick={() => deleteTenant(t._id)}
                            className="p-3 hover:bg-red-500/10 rounded-xl transition-all text-gray-700 hover:text-red-500"
@@ -233,6 +231,104 @@ export default function TenantManagement() {
 
                  <button className="w-full bg-blue-600 hover:bg-blue-500 text-white font-black uppercase tracking-[0.3em] text-[10px] py-6 rounded-2xl transition-all shadow-2xl mt-4">
                     Authorize & Deploy
+                 </button>
+              </form>
+           </div>
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      {isEditModalOpen && editData && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-6">
+           <div className="bg-[#0a0a0a] border border-white/10 w-full max-w-lg rounded-[40px] p-10 shadow-2xl relative overflow-hidden text-white">
+              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-600 to-purple-600" />
+              
+              <button 
+               onClick={() => setIsEditModalOpen(false)}
+               className="absolute top-6 right-6 text-gray-500 hover:text-white"
+              >
+                 <X className="w-6 h-6" />
+              </button>
+
+              <div className="mb-8">
+                 <h2 className="text-2xl font-black uppercase italic tracking-tighter">Modify Entity</h2>
+                 <p className="text-gray-500 text-xs uppercase tracking-widest font-bold mt-1">Updating credentials for {editData.companyName}</p>
+              </div>
+
+              <form onSubmit={handleEditSubmit} className="space-y-6">
+                 <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                       <div className="space-y-1">
+                          <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest ml-1">Company Name</label>
+                          <input 
+                            required 
+                            type="text" 
+                            className="w-full bg-white/[0.03] border border-white/10 p-4 rounded-2xl outline-none focus:border-blue-500 text-sm text-white" 
+                            value={editData.companyName}
+                            onChange={e => setEditData({...editData, companyName: e.target.value})} 
+                          />
+                       </div>
+                       <div className="space-y-1">
+                          <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest ml-1">Allowed Seats</label>
+                          <input 
+                            required 
+                            type="number" 
+                            className="w-full bg-white/[0.03] border border-white/10 p-4 rounded-2xl outline-none focus:border-blue-500 text-sm text-white" 
+                            value={editData.allowedSeats}
+                            onChange={e => setEditData({...editData, allowedSeats: parseInt(e.target.value)})} 
+                          />
+                       </div>
+                    </div>
+
+                    <div className="space-y-1">
+                       <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest ml-1">Admin Email</label>
+                       <input 
+                        required 
+                        type="email" 
+                        className="w-full bg-white/[0.03] border border-white/10 p-4 rounded-2xl outline-none focus:border-blue-500 text-sm text-white" 
+                        value={editData.adminEmail}
+                        onChange={e => setEditData({...editData, adminEmail: e.target.value})} 
+                       />
+                    </div>
+
+                    <div className="space-y-1">
+                       <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest ml-1 text-blue-500">Update Password (Leave blank to keep current)</label>
+                       <input 
+                        type="text" 
+                        placeholder="New Password"
+                        className="w-full bg-white/[0.03] border border-blue-500/20 p-4 rounded-2xl outline-none focus:border-blue-500 text-sm text-white" 
+                        onChange={e => setEditData({...editData, password: e.target.value})} 
+                       />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                           <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest ml-1">Status</label>
+                           <select 
+                            className="w-full bg-white/[0.03] border border-white/10 p-4 rounded-2xl outline-none focus:border-blue-500 text-sm appearance-none text-white"
+                            value={editData.status}
+                            onChange={e => setEditData({...editData, status: e.target.value})}
+                           >
+                              <option value="active" className="bg-black">Active</option>
+                              <option value="suspended" className="bg-black">Suspended</option>
+                           </select>
+                        </div>
+                        <div className="space-y-1">
+                           <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest ml-1">Plan</label>
+                           <select 
+                            className="w-full bg-white/[0.03] border border-white/10 p-4 rounded-2xl outline-none focus:border-blue-500 text-sm appearance-none text-white"
+                            value={editData.plan}
+                            onChange={e => setEditData({...editData, plan: e.target.value})}
+                           >
+                              <option value="starter" className="bg-black">Starter</option>
+                              <option value="enterprise" className="bg-black">Enterprise</option>
+                           </select>
+                        </div>
+                    </div>
+                 </div>
+
+                 <button className="w-full bg-blue-600 hover:bg-blue-500 text-white font-black uppercase tracking-[0.3em] text-[10px] py-6 rounded-2xl transition-all shadow-2xl mt-4">
+                    Confirm Updates
                  </button>
               </form>
            </div>
