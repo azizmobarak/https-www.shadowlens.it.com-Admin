@@ -25,6 +25,7 @@ export interface IAgent extends Document {
   hostname: string;
   hardwareId: string;
   lastPulse: Date;
+  status?: string;
   os: string;
   version: string;
 }
@@ -36,6 +37,8 @@ export interface IViolation extends Document {
   action: string;
   payloadSnippet: string;
   severity: string;
+  appName?: string;
+  windowTitle?: string;
 }
 
 export interface IGlobalConfig extends Document {
@@ -69,6 +72,7 @@ const AgentSchema = new Schema({
   hostname: { type: String },
   hardwareId: { type: String, required: true, unique: true },
   lastPulse: { type: Date, default: Date.now },
+  status: { type: String, default: 'ACTIVE' },
   os: { type: String },
   version: { type: String },
 }, { timestamps: true });
@@ -80,6 +84,8 @@ const ViolationSchema = new Schema({
   action: { type: String, enum: ['blocked', 'monitored'], default: 'blocked' },
   payloadSnippet: { type: String },
   severity: { type: String, enum: ['low', 'medium', 'high'], default: 'medium' },
+  appName: { type: String, default: 'Unknown' },
+  windowTitle: { type: String, default: 'Background Process' },
 }, { timestamps: true });
 
 const GlobalConfigSchema = new Schema({
